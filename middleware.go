@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/Sirupsen/logrus"
 )
 
 var defaultMetricPath = "/metrics"
@@ -150,7 +150,7 @@ func (p *Prometheus) registerMetrics(subsystem string) {
 			Name:      "requests_total",
 			Help:      "How many HTTP requests processed, partitioned by status code and HTTP method.",
 		},
-		[]string{"code", "method", "handler", "host"},
+		[]string{"code", "method", "path", "handler", "host"},
 	)
 
 	if err := prometheus.Register(p.reqCnt); err != nil {
@@ -217,6 +217,7 @@ func (p *Prometheus) UseWithAuth(e *gin.Engine, accounts gin.Accounts) {
 
 func (p *Prometheus) handlerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		path := c.Request.URL.Path
 		if c.Request.URL.String() == p.MetricsPath {
 			c.Next()
 			return
@@ -232,7 +233,7 @@ func (p *Prometheus) handlerFunc() gin.HandlerFunc {
 		resSz := float64(c.Writer.Size())
 
 		p.reqDur.Observe(elapsed)
-		p.reqCnt.WithLabelValues(status, c.Request.Method, c.HandlerName(), c.Request.Host).Inc()
+		p.reqCnt.WithLabelValues(status, c.Request.Method, path, c.HandlerName(), c.Request.Host).Inc()
 		p.reqSz.Observe(float64(reqSz))
 		p.resSz.Observe(resSz)
 	}
